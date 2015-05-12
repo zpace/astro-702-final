@@ -306,4 +306,5 @@ def Q3_4_5(dx, dt, xlims, tlims):
 	plt.legend(loc = 'best')
 	plt.xlabel('$t$', size = 18)
 	plt.ylabel('$Y$', size = 18)
+	plt.tight_layout()
 	plt.savefig('Q4.png')
