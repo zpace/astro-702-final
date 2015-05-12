@@ -56,26 +56,40 @@ def godunov(y, dt, dx):
 	'''
 
 	y = np.concatenate((np.array([y[0]]), y, np.array([y[-1]])))
-	Sm = 0.5 * ( y[1:-1] + y[ :-2] )
-	Sp = 0.5 * ( y[1:-1] + y[2:  ] )
 
-	fp = np.zeros(len(y))
-	fm = np.zeros(len(y))
+	fp = np.zeros(len(y) - 2)
+	fm = np.zeros(len(y) - 2)
+	Sp = np.zeros(len(y) - 2)
+	Sm = np.zeros(len(y) - 2)
 
-	fp[Sp > 0] = (0.5*(y[1:-1])**2.)[Sp > 0]
-	fp[Sp < 0] = (0.5*(y[2:  ])**2.)[Sp < 0]
-	Spbad = [np.abs(y[1:-1] - y[2:]) < 1e-5] #when the amounts on each side are almost equal
-	fp[Spbad] = (0.5 * y[1:-1]**2.)[Spbad]
+	for i in range(len(fp)):
+		#first build the fp array
+		if np.abs(y[i+1] - y[i+2]) > 1e-10:
+			#do the normal case
+			Sp_i = 0.5 * (y[i+1] + y[i+2])
+			if Sp_i > 0:
+				fp[i] = 0.5 * y[i + 1]**2.
+			elif Sp_i < 0:
+				fp[i] = 0.5 * y[i + 2]**2.
+			Sp[i] = Sp_i
+		else: #i.e., if np.abs(y[i+1] - y[i+2]) < 1e-10:
+			#do the special case  
+			fp[i] = 0.5 * y[i + 1]**2.
 
-	#print np.sum(Spbad)
-	#print np.sum(fp == 0.)
+		#now build the fm array
+		if np.abs(y[i] - y[i+1]) > 1e-10:
+			#do the normal case
+			Sm_i = 0.5 * (y[i] + y[i+1])
+			if Sm_i > 0:
+				fm[i] = 0.5 * y[i]**2.
+			elif Sm_i < 0:
+				fm[i] = 0.5 * y[i + 1]**2.
+			Sm[i] = Sm_i
+		else:
+			fm[i] = 0.5 * y[i]**2.
 
-	fm[Sm > 0] = (0.5*(y[1:-1])**2.)[Sm > 0]
-	fm[Sm < 0] = (0.5*(y[ :-2])**2.)[Sm < 0]
-	Smbad = [np.abs(y[1:-1] - y[:-2]) < 1e-5]
-	fm[Smbad] = (0.5 * y[1:-1]**2.)[Smbad]
-	
-	y_new = y[1:-1] - dt/dx * (fp[2:] - fm[:-2])
+	y_new = y[1:-1] - dt/dx * (fp - fm)
+
 	return y_new
 
 def Q1(dx, dt, xlims, tlims):
@@ -211,7 +225,7 @@ def Q2(dx, dt, xlims, tlims):
 	plt.tight_layout()
 	plt.savefig('Q2.png')
 
-def Q3_4_5(dx, dt, xlims, tlims):
+def Q3_4_5(dx, dt, xlims, tlims, test = False):
 	xr, yr = start(dx, xlims, 'r')
 
 	xf, yf = start(dx, xlims, 'f')
@@ -228,73 +242,65 @@ def Q3_4_5(dx, dt, xlims, tlims):
 	plot_times = [0., 1., 2., 4.]
 	plot_yn_a = np.array([ ( np.abs(ts - time) == np.min(np.abs(ts - time)) ) for time in plot_times]).sum(axis = 0) > 0
 
-	plt.close('all')
-	plt.figure(figsize = (6, 4))
+	if test == True:
+		yr = godunov(yr, dt, dx)
+		yf = godunov(yf, dt, dx)
 
-	print yr[:3], yr[-3:]
-	plt.plot(xr, yr, label = '$n=0$', c = 'b', alpha = 0.5)
-	
-	yr = godunov(yr, dt, dx)
-	yr_h = np.row_stack((yr_h, yr))
-	yf_h = np.row_stack((yf_h, yf))
-	print yr[:3], yr[-3:]
-	plt.plot(xr, yr, label = '$n=1$', c = 'g', linestyle = '--', alpha = 0.5)
+		plt.close('all')
 
-	plt.show()
+		plt.figure(figsize = (6, 4))
+		plt.plot(xr, yr, label = 'Rising', c = 'b', alpha = 0.5)
+		plt.plot(xf, yf, label = 'Falling', c = 'g', alpha = 0.5)
+		plt.legend(loc = 'best')
 
-	'''
-	yr = godunov(yr, dt, dx)
-	yf = godunov(yf, dt, dx)
+		plt.xlim([xlims[0] - 0.1*xlims[1], 1.1*xlims[1]])
+		plt.ylim([-0.1, 1.1])
 
-	plt.figure(figsize = (6, 4))
-	plt.plot(xr, yr, label = 'Rising', c = 'b', alpha = 0.5)
-	plt.plot(xf, yf, label = 'Falling', c = 'g', alpha = 0.5)
-	plt.legend(loc = 'best')
+		plt.show()
+	else:
 
-	plt.xlim([xlims[0] - 0.1*xlims[1], 1.1*xlims[1]])
-	plt.ylim([-0.1, 1.1])
+		plt.close('all')
 
-	plt.show()
-	'''
+		fig = plt.figure()
+		ax1 = plt.subplot(221)
+		ax2 = plt.subplot(222)
+		ax3 = plt.subplot(223)
+		ax4 = plt.subplot(224)
+		
+		for time, ax in zip(plot_times, [ax1, ax2, ax3, ax4]):
+			ax.set_xlabel('$x$', size = 18)
+			ax.set_ylabel('$y$', size = 18)
+			ax.set_ylim([-0.1, 1.1])
+			ax.set_xlim([xlims[0] - 0.1*xlims[1], 1.1*xlims[1]])
+			ax.set_title('$t = {}$'.format(time), size = 18)
 
-	'''
-	fig = plt.figure()
-	ax1 = plt.subplot(221)
-	ax2 = plt.subplot(222)
-	ax3 = plt.subplot(223)
-	ax4 = plt.subplot(224)
-	
-	for time, ax in zip(plot_times, [ax1, ax2, ax3, ax4]):
-		ax.set_xlabel('$x$', size = 18)
-		ax.set_ylabel('$y$', size = 18)
-		ax.set_ylim([-0.1, 1.1])
-		ax.set_xlim([xlims[0] - 0.1*xlims[1], 1.1*xlims[1]])
-		ax.set_title('$t = {}$'.format(time), size = 18)
+		num_plots_done = 0
 
-	num_plots_done = 0
+		for t, plot_yn in zip(ts, plot_yn_a):
+			if t != 0.:
+				#print 'running', t
+				yr, yr_prev = godunov(yr, dt, dx), yr
+				#print np.sum(yr == yr_prev)
+				yf, yf_prev = godunov(yf, dt, dx), yf
+				#print np.sum(yf == yf_prev)
+				yr_h = np.row_stack((yr_h, yr))
+				yf_h = np.row_stack((yf_h, yf))
 
-	for t, plot_yn in zip(ts, plot_yn_a):
-		if t != 0.:
-			yr = godunov(yr, dt, dx)
-			yf = godunov(yf, dt, dx)
-			yr_h = np.row_stack((yr_h, yr))
-			yf_h = np.row_stack((yf_h, yf))
+			axs = [ax1, ax2, ax3, ax4]
 
-		axs = [ax1, ax2, ax3, ax4]
+			if plot_yn == True:
+				print 'plotting', axs[num_plots_done]
+				axs[num_plots_done].plot(xr, yr, label = 'Rising', c = 'b', alpha = 0.5)
+				axs[num_plots_done].plot(xf, yf, label = 'Falling', c = 'g', alpha = 0.5)
 
-		if plot_yn == True:
-			axs[num_plots_done].plot(xr, yr, label = 'Rising', c = 'b', alpha = 0.5)
-			axs[num_plots_done].plot(xf, yf, label = 'Falling', c = 'g', alpha = 0.5)
+				axs[num_plots_done].legend(loc = 'best')
+				num_plots_done += 1
 
-			axs[num_plots_done].legend(loc = 'best')
-			num_plots_done += 1
-
-	plt.tight_layout()
-	plt.savefig('Q3.png')
-	'''
+		plt.tight_layout()
+		plt.savefig('Q3.png')
 
 	#now plot the total integrated quantity across time for each case
-
+	'''
 	Yr = np.sum(yr_h, axis = -1) * dx
 	Yf = np.sum(yf_h, axis = -1) * dx
 
@@ -308,3 +314,4 @@ def Q3_4_5(dx, dt, xlims, tlims):
 	plt.ylabel('$Y$', size = 18)
 	plt.tight_layout()
 	plt.savefig('Q4.png')
+	'''
