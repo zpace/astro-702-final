@@ -225,7 +225,7 @@ def Q2(dx, dt, xlims, tlims):
 	plt.tight_layout()
 	plt.savefig('Q2.png')
 
-def Q3_4_5(dx, dt, xlims, tlims, test = False):
+def Q3_4(dx, dt, xlims, tlims, test = False):
 	xr, yr = start(dx, xlims, 'r')
 
 	xf, yf = start(dx, xlims, 'f')
@@ -300,7 +300,7 @@ def Q3_4_5(dx, dt, xlims, tlims, test = False):
 		plt.savefig('Q3.png')
 
 	#now plot the total integrated quantity across time for each case
-	'''
+
 	Yr = np.sum(yr_h, axis = -1) * dx
 	Yf = np.sum(yf_h, axis = -1) * dx
 
@@ -314,4 +314,47 @@ def Q3_4_5(dx, dt, xlims, tlims, test = False):
 	plt.ylabel('$Y$', size = 18)
 	plt.tight_layout()
 	plt.savefig('Q4.png')
-	'''
+
+def Q5(dx, xlims, tlims):
+	dt = 1.25*dx
+
+	ts = np.arange(tlims[0], tlims[1] + dt, dt)
+
+	xr, yr = start(dx, xlims, 'r')
+
+	xf, yf = start(dx, xlims, 'f')
+
+	yr_0, yf_0 = yr, yf #keep the ICs in reserve
+
+	#set up history arrays to allow post-processing
+	yr_h, yf_h = yr[np.newaxis, :], yf[np.newaxis, :]
+
+	plt.close('all')
+
+	fig = plt.figure()
+	ax = plt.subplot(111)
+	ax.set_xlabel('$x$', size = 18)
+	ax.set_ylabel('$y$', size = 18)
+	ax.set_ylim([-0.1, 1.1])
+	ax.set_xlim([xlims[0] - 0.1*xlims[1], 1.1*xlims[1]])
+	ax.set_title('Instability: $dt = {}$'.format(dt) + ', $dx = {}$'.format(dx))
+
+	num_plots_done = 0
+
+	for t in ts:
+		if t != 0.:
+			#print 'running', t
+			yr, yr_prev = godunov(yr, dt, dx), yr
+			#print np.sum(yr == yr_prev)
+			yf, yf_prev = godunov(yf, dt, dx), yf
+			#print np.sum(yf == yf_prev)
+			yr_h = np.row_stack((yr_h, yr))
+			yf_h = np.row_stack((yf_h, yf))
+
+		if t%1 == 0.:
+			ax.plot(xr, yr, linewidth = 0.75, label = '$t = {}$'.format(t) + ', rising')
+			ax.plot(xf, yf, linestyle = '--', linewidth = 0.75, label = '$t = {}$'.format(t) + ', falling')
+
+	ax.legend(loc = 'best')
+
+	plt.savefig('Q5.png')
